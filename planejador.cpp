@@ -2,6 +2,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <list>
 
 #include "planejador.h"
 
@@ -216,9 +217,7 @@ bool Planejador::ler(const std::string &arq_pontos,
       if (!R.extremidade[0].valid())
         throw 7;
 
-      auto it_listP = find_if(listP.begin(), listP.end(), [&R](const Ponto &p) {
-        return p.id == R.extremidade[0];
-      });
+      auto it_listP = find(listP.begin(), listP.end(), R.extremidade[0]);
 
       if (it_listP != listP.end())
         throw 8;
@@ -237,9 +236,7 @@ bool Planejador::ler(const std::string &arq_pontos,
       if (!R.extremidade[1].valid())
         throw 10;
 
-      it_listP = find_if(listP.begin(), listP.end(), [&R](const Ponto &p) {
-        return p.id == R.extremidade[1];
-      });
+      it_listP = find(listP.begin(), listP.end(), R.extremidade[1]);
 
       if (it_listP != listP.end())
         throw 11;
@@ -294,25 +291,6 @@ bool Planejador::ler(const std::string &arq_pontos,
 /  FALTA FAZER  /
 /  *********** */
 
-struct Noh {
-  IDPonto id_pt;
-  IDRota id_rt;
-  double g;
-  double h;
-
-  Noh() : id_pt(), id_rt(), g(0.0), h(0.0) {}
-
-  Noh(const IDPonto &ponto, const IDRota &rota, double custo_passado,
-      double custo_heuristico)
-      : id_pt(ponto), id_rt(rota), g(custo_passado), h(custo_heuristico) {}
-
-  double f() const { return g + h; }
-
-  bool operator<(const Noh &outro) const { return f() < outro.f(); }
-
-  bool operator==(const Noh &outro) const { return id_pt == outro.id_pt; }
-};
-
 /// Calcula o caminho entre a origem e o destino do planejador usando o
 /// algoritmo A* Retorna o comprimento do caminho encontrado.
 /// (<0 se  parametros invalidos ou nao existe caminho).
@@ -345,6 +323,69 @@ double Planejador::calculaCaminho(const IDPonto &id_origem,
     if (!pt_dest.valid())
       throw 5;
 
+    list<Noh> aberto;
+    list<Noh> fechado;
+
+    Noh inicial(id_origem, IDRota(), 0.0, haversine(pt_orig, pt_dest));
+
+    aberto.push_back(inicial);
+
+    while (!aberto.empty()) {
+      Noh atual = aberto.front();
+      aberto.pop_front();
+
+      fechado.push_back(atual);
+
+      if (atual.id_pt == id_destino) {
+        reconstruir_caminho(atual, fechado, C);
+
+        NA = aberto.size();
+        NF = fechado.size();
+        return atual.g;
+      }
+
+      for (const auto &rota : rotas) {
+        if (rota.extremidade[0] != atual.id_pt &&
+            rota.extremidade[1] != atual.id_pt)
+          continue;
+
+        IDPonto sucessor_id = (rota.extremidade[0] == atual.id_pt)
+                                  ? rota.extremidade[1]
+                                  : rota.extremidade[0];
+        Ponto sucessor_pt = getPonto(sucessor_id);
+
+        if (!sucessor_pt.valid())
+          continue;
+
+        double custo_g = atual.g + rota.comprimento;
+        double custo_h = haversine(sucessor_pt, pt_dest);
+        Noh sucessor(sucessor_id, rota.id, custo_g, custo_h);
+
+        auto it_fechado = find(fechado.begin(), fechado.end(), sucessor);
+        if (it_fechado != fechado.end())
+          continue;
+
+        auto it_aberto = find(aberto.begin(), aberto.end(), sucessor);
+
+        if (it_aberto != aberto.end()) {
+          if (sucessor.f() < it_aberto->f()) {
+            aberto.erase(it_aberto);
+          } else {
+            continue;
+          }
+        }
+
+        auto pos =
+            find_if(aberto.begin(), aberto.end(),
+                    [&sucessor](const Noh &n) { return sucessor.f() < n.f(); });
+
+        aberto.insert(pos, sucessor);
+      }
+    }
+
+    NA = aberto.size();
+    NF = fechado.size();
+
     /* *****************************  /
     /  IMPLEMENTACAO DO ALGORITMO A*  /
     /  ***************************** */
@@ -362,4 +403,22 @@ double Planejador::calculaCaminho(const IDPonto &id_origem,
   // return. Caminho C permanece vazio.
   NA = NF = -1;
   return -1.0;
+}
+
+void Planejador::reconstruir_caminho(const Noh &atual,
+                                     const std::list<Noh> &fechado,
+                                     Caminho &C) {
+
+  C.clear();
+  Noh noh = atual;
+
+  while (noh.id_rt.valid()) {
+    C.push_front({noh.id_rt, noh.id_pt});
+    auto it = find(fechado.begin(), fechado.end(), noh);
+    if (it == fechado.end())
+      break;
+    noh = *it;
+  }
+
+  C.push_front({IDRota(), noh.id_pt});
 }

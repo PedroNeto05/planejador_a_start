@@ -114,6 +114,25 @@ struct Rota {
 /// ultimo elemento, o ponto eh o destino.
 using Caminho = std::list<std::pair<IDRota, IDPonto>>;
 
+struct Noh {
+  IDPonto id_pt;
+  IDRota id_rt;
+  double g;
+  double h;
+
+  Noh() : id_pt(), id_rt(), g(0.0), h(0.0) {}
+
+  Noh(const IDPonto &ponto, const IDRota &rota, double custo_passado,
+      double custo_heuristico)
+      : id_pt(ponto), id_rt(rota), g(custo_passado), h(custo_heuristico) {}
+
+  double f() const { return g + h; }
+
+  bool operator<(const Noh &n) const { return f() < n.f(); }
+
+  bool operator==(const Noh &n) const { return id_pt == n.id_pt; }
+};
+
 /* *************************
  * CLASSE PLANEJADOR     *
  ************************* */
@@ -174,6 +193,9 @@ public:
   /// (<0 se parametros invalidos, retorna >0 mesmo quando nao existe caminho).
   double calculaCaminho(const IDPonto &id_origem, const IDPonto &id_destino,
                         Caminho &C, int &NA, int &NF);
+
+  void reconstruir_caminho(const Noh &atual, const std::list<Noh> &fechado,
+                           Caminho &C);
 };
 
 #endif // _PLANEJADOR_H_
