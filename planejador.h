@@ -70,6 +70,7 @@ struct Ponto {
   // Teste de validade
   bool valid() const { return id.valid(); }
   bool operator==(const Ponto &p) const { return id == p.id; }
+  bool operator==(const IDPonto &idPonto) const { return id == idPonto; }
   // Sobrecarga de operadores
   // Utilizados pelos algoritmos STL
   /* ***********  /
@@ -96,6 +97,7 @@ struct Rota {
   // Teste de validade
   bool valid() const { return id.valid(); }
   bool operator==(const Rota &r) const { return id == r.id; }
+  bool operator==(const IDRota &idRota) const { return id == idRota; }
   // Sobrecarga de operadores
   // Utilizados pelos algoritmos STL
   /* ***********  /
