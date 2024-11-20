@@ -156,7 +156,7 @@ bool Planejador::ler(const std::string &arq_pontos,
         throw 7;
       arq >> ws;
 
-      itr_ponto = find(listP.begin(), listP.end(), P.id);
+      itr_ponto = find(listP.begin(), listP.end(), P);
 
       if (itr_ponto != listP.end())
         throw 8;
@@ -219,9 +219,8 @@ bool Planejador::ler(const std::string &arq_pontos,
 
       itr_ponto = find(listP.begin(), listP.end(), R.extremidade[0]);
 
-      if (itr_ponto != listP.end()) {
+      if (itr_ponto == listP.end())
         throw 8;
-      }
       // Verifica se a Id corresponde a um ponto no conteiner de pontos lidos
       // (listP) Caso ponto nao exista, throw 8
       /* ***********  /
@@ -238,7 +237,7 @@ bool Planejador::ler(const std::string &arq_pontos,
 
       itr_ponto = find(listP.begin(), listP.end(), R.extremidade[1]);
 
-      if (itr_ponto != listP.end())
+      if (itr_ponto == listP.end())
         throw 8;
 
       // Verifica se a Id corresponde a um ponto no conteiner de pontos
@@ -347,6 +346,7 @@ double Planejador::calculaCaminho(const IDPonto &id_origem,
       }
 
       for (const auto &rota : rotas) {
+        cout << "Entrou aqui" << endl;
         if (rota.extremidade[0] != atual.id_pt &&
             rota.extremidade[1] != atual.id_pt)
           continue;
