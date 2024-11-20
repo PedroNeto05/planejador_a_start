@@ -73,18 +73,14 @@ void Planejador::clear() {
 /// Retorna um Ponto do mapa, passando a id como parametro.
 /// Se a id for inexistente, retorna um Ponto vazio.
 Ponto Planejador::getPonto(const IDPonto &Id) const {
-  Ponto temp;
-  temp.id = Id;
-  auto it = std::find(pontos.begin(), pontos.end(), temp);
+  auto it = find(pontos.begin(), pontos.end(), Id);
   return (it != pontos.end()) ? *it : Ponto();
 }
 
 /// Retorna um Rota do mapa, passando a id como parametro.
 /// Se a id for inexistente, retorna um Rota vazio.
 Rota Planejador::getRota(const IDRota &Id) const {
-  Rota temp;
-  temp.id = Id;
-  auto it = std::find(rotas.begin(), rotas.end(), temp);
+  auto it = find(rotas.begin(), rotas.end(), Id);
   return (it != rotas.end()) ? *it : Rota();
 }
 
@@ -160,9 +156,11 @@ bool Planejador::ler(const std::string &arq_pontos,
         throw 7;
       arq >> ws;
 
-      auto it_listP = find(listP.begin(), listP.end(), P);
-      if (it_listP != listP.end())
+      itr_ponto = find(listP.begin(), listP.end(), P.id);
+
+      if (itr_ponto != listP.end())
         throw 8;
+
       // Verifica se jah existe ponto com a mesma ID no conteiner de pontos
       // lidos (listP) Caso exista, throw 8
       /* ***********  /
@@ -190,8 +188,10 @@ bool Planejador::ler(const std::string &arq_pontos,
 
     // Leh o cabecalho
     getline(arq, prov);
-    if (arq.fail() || prov != "ID;Nome;Extremidade 1;Extremidade 2;Comprimento")
+    if (arq.fail() ||
+        prov != "ID;Nome;Extremidade 1;Extremidade 2;Comprimento") {
       throw 2;
+    }
 
     // Leh as rotas
     do {
@@ -217,11 +217,11 @@ bool Planejador::ler(const std::string &arq_pontos,
       if (!R.extremidade[0].valid())
         throw 7;
 
-      auto it_listP = find(listP.begin(), listP.end(), R.extremidade[0]);
+      itr_ponto = find(listP.begin(), listP.end(), R.extremidade[0]);
 
-      if (it_listP != listP.end())
+      if (itr_ponto != listP.end()) {
         throw 8;
-
+      }
       // Verifica se a Id corresponde a um ponto no conteiner de pontos lidos
       // (listP) Caso ponto nao exista, throw 8
       /* ***********  /
@@ -236,10 +236,11 @@ bool Planejador::ler(const std::string &arq_pontos,
       if (!R.extremidade[1].valid())
         throw 10;
 
-      it_listP = find(listP.begin(), listP.end(), R.extremidade[1]);
+      itr_ponto = find(listP.begin(), listP.end(), R.extremidade[1]);
 
-      if (it_listP != listP.end())
-        throw 11;
+      if (itr_ponto != listP.end())
+        throw 8;
+
       // Verifica se a Id corresponde a um ponto no conteiner de pontos
       // lidos (listP) Caso ponto nao exista, throw 11
       /* ***********  /
@@ -252,8 +253,9 @@ bool Planejador::ler(const std::string &arq_pontos,
         throw 12;
       arq >> ws;
 
-      auto it_listR = find(listR.begin(), listR.end(), R);
-      if (it_listR != listR.end())
+      itr_rota = find(listR.begin(), listR.end(), R);
+
+      if (itr_rota != listR.end())
         throw 13;
       // Verifica se jah existe rota com a mesma ID no conteiner de rotas lidas
       // (listR) Caso exista, throw 13
