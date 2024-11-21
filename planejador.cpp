@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <list>
+#include <utility>
 
 #include "planejador.h"
 
@@ -304,121 +305,118 @@ bool Planejador::ler(const std::string &arq_pontos,
 double Planejador::calculaCaminho(const IDPonto &id_origem,
                                   const IDPonto &id_destino, Caminho &C,
                                   int &NA, int &NF) {
-  C.clear(); // Inicializa o caminho como vazio
+  // Zera o caminho resultado
+  C.clear();
 
   try {
+    // Mapa vazio
     if (empty())
-      throw 1; // Verifica se o mapa está vazio
+      throw 1;
 
-    Ponto pt_orig = getPonto(id_origem); // Obtém o ponto de origem
+    // Calcula o ponto que corresponde a id_origem.
+    // Se nao existir, throw 4
+    Ponto pt_orig = getPonto(id_origem);
     if (!pt_orig.valid())
-      throw 4; // Verifica a validade do ponto
+      throw 4;
 
-    Ponto pt_dest = getPonto(id_destino); // Obtém o ponto de destino
+    // Calcula o ponto que corresponde a id_destino.
+    // Se nao existir, throw 5
+    Ponto pt_dest = getPonto(id_destino);
     if (!pt_dest.valid())
-      throw 5; // Verifica a validade do ponto
+      throw 5;
 
-    // Conjuntos para os nós abertos e fechados
-    std::list<Noh> Aberto, Fechado;
+    Noh atual(id_origem, IDRota(), 0.0, haversine(pt_orig, pt_dest));
 
-    // Inicializa o nó inicial
-    Noh atual{id_origem, IDRota(), 0.0, haversine(pt_orig, pt_dest)};
-    Aberto.push_back(atual);
+    list<Noh> aberto, fechado;
+    aberto.push_back(atual);
 
-    while (!Aberto.empty()) {
-      // Ordena e seleciona o nó de menor custo
-      Aberto.sort();
-      atual = Aberto.front();
-      Aberto.pop_front();
+    do {
 
-      // Adiciona o nó em Fechado
-      Fechado.push_back(atual);
+      atual = aberto.front();
+      aberto.pop_front();
 
-      // Verifica se chegou ao destino
-      if (atual.id_pt == id_destino) {
-        C.clear();
-        while (!atual.id_rt.valid()) {
-          // Reconstrói o caminho
-          C.emplace_front(atual.id_rt, atual.id_pt);
+      fechado.push_back(atual);
 
-          // Recupera o antecessor
-          auto rota_ant = getRota(atual.id_rt);
-          auto id_pt_ant = (rota_ant.extremidade[0] == atual.id_pt)
-                               ? rota_ant.extremidade[1]
-                               : rota_ant.extremidade[0];
-          auto it_ant = std::find_if(
-              Fechado.begin(), Fechado.end(),
-              [&id_pt_ant](const Noh &noh) { return noh.id_pt == id_pt_ant; });
-          if (it_ant == Fechado.end())
-            break; // Caso não encontre, termina
-          atual = *it_ant;
-        }
+      if (atual.id_pt != id_destino) {
+        for (const auto &rota_suc : rotas) {
+          if (rota_suc.extremidade[0] == atual.id_pt ||
+              rota_suc.extremidade[1] == atual.id_pt) {
 
-        C.emplace_front(IDRota(), id_origem); // Adiciona a origem ao caminho
-        NA = Aberto.size();
-        NF = Fechado.size();
-        return atual.g; // Retorna o comprimento do caminho
-      }
+            Noh suc;
+            suc.id_pt = (rota_suc.extremidade[0] == atual.id_pt)
+                            ? rota_suc.extremidade[1]
+                            : rota_suc.extremidade[0];
+            Ponto pt_suc = getPonto(suc.id_pt);
+            suc.id_rt = rota_suc.id;
+            suc.g = atual.g + rota_suc.comprimento;
+            suc.h = haversine(pt_suc, pt_dest);
 
-      // Gera os sucessores do nó atual
-      for (const auto &rota : rotas) {
-        if (rota.extremidade[0] == atual.id_pt ||
-            rota.extremidade[1] == atual.id_pt) {
-          IDPonto id_suc = (rota.extremidade[0] == atual.id_pt)
-                               ? rota.extremidade[1]
-                               : rota.extremidade[0];
-          Ponto pt_suc = getPonto(id_suc);
+            bool eh_inedito = true;
 
-          double g_suc = atual.g + rota.comprimento;
-          double h_suc = haversine(pt_suc, pt_dest);
+            auto old = find(fechado.begin(), fechado.end(), suc);
 
-          // Verifica se o sucessor já está em Fechado
-          auto it_fechado = std::find_if(
-              Fechado.begin(), Fechado.end(),
-              [&id_suc](const Noh &noh) { return noh.id_pt == id_suc; });
-          if (it_fechado != Fechado.end())
-            continue;
+            if (old != fechado.end()) {
+              eh_inedito = false;
+            } else {
+              old = find(aberto.begin(), aberto.end(), suc);
 
-          // Verifica se o sucessor já está em Aberto
-          auto it_aberto = std::find_if(
-              Aberto.begin(), Aberto.end(),
-              [&id_suc](const Noh &noh) { return noh.id_pt == id_suc; });
-
-          if (it_aberto != Aberto.end()) {
-            if (g_suc + h_suc < it_aberto->f()) {
-              Aberto.erase(it_aberto);
-              Aberto.push_back({id_suc, rota.id, g_suc, h_suc});
+              if (old != aberto.end()) {
+                if (suc.f() < old->f()) {
+                  aberto.erase(old);
+                } else {
+                  eh_inedito = false;
+                }
+              }
             }
-          } else {
-            Aberto.push_back({id_suc, rota.id, g_suc, h_suc});
+
+            if (eh_inedito) {
+              auto big = upper_bound(aberto.begin(), aberto.end(), suc);
+              aberto.insert(big, suc);
+            }
           }
         }
       }
+    } while (!aberto.empty() && atual.id_pt != id_destino);
+
+    NA = aberto.size();
+    NF = fechado.size();
+
+    double compr = -1.0;
+
+    if (atual.id_pt != id_destino) {
+
+      return compr;
+    } else {
+      compr = atual.g;
+
+      while (atual.id_rt.valid()) {
+        C.push_front(make_pair(atual.id_rt, atual.id_pt));
+
+        Rota rota_ant = getRota(atual.id_rt);
+        IDPonto id_pt_ant = (rota_ant.extremidade[0] != atual.id_pt)
+                                ? rota_ant.extremidade[0]
+                                : rota_ant.extremidade[1];
+        atual = *find(fechado.begin(), fechado.end(), id_pt_ant);
+      }
+
+      C.push_front(make_pair(atual.id_rt, atual.id_pt));
     }
 
-    throw 2; // Caso nenhuma solução seja encontrada
+    /* *****************************  /
+    /  IMPLEMENTACAO DO ALGORITMO A*  /
+    /  ***************************** */
+    /* ***********  /
+    /  FALTA FAZER  /
+    /  *********** */
+
+    // O try tem que terminar retornando o comprimento calculado
+    return compr; // SUBSTITUA pelo return do valor correto
   } catch (int i) {
-    std::cerr << "Erro " << i << " no cálculo do caminho\n";
+    cerr << "Erro " << i << " no calculo do caminho\n";
   }
 
+  // Soh chega aqui se executou o catch, jah que o try termina sempre com
+  // return. Caminho C permanece vazio.
   NA = NF = -1;
-  return -1.0; // Retorna indicando que o caminho não foi encontrado
-}
-
-void Planejador::reconstruir_caminho(const Noh &atual,
-                                     const std::list<Noh> &fechado,
-                                     Caminho &C) {
-
-  C.clear();
-  Noh noh = atual;
-
-  while (noh.id_rt.valid()) {
-    C.push_front({noh.id_rt, noh.id_pt});
-    auto it = find(fechado.begin(), fechado.end(), noh);
-    if (it == fechado.end())
-      break;
-    noh = *it;
-  }
-
-  C.push_front({IDRota(), noh.id_pt});
+  return -1.0;
 }

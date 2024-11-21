@@ -131,8 +131,8 @@ struct Noh {
   double f() const { return g + h; }
 
   bool operator<(const Noh &n) const { return f() < n.f(); }
-
   bool operator==(const Noh &n) const { return id_pt == n.id_pt; }
+  bool operator==(const IDPonto &idPonto) const { return id_pt == idPonto; }
 };
 
 /* *************************
