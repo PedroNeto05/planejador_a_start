@@ -195,9 +195,6 @@ public:
   /// (<0 se parametros invalidos, retorna >0 mesmo quando nao existe caminho).
   double calculaCaminho(const IDPonto &id_origem, const IDPonto &id_destino,
                         Caminho &C, int &NA, int &NF);
-
-  void reconstruir_caminho(const Noh &atual, const std::list<Noh> &fechado,
-                           Caminho &C);
 };
 
 #endif // _PLANEJADOR_H_
